@@ -36,10 +36,6 @@ const AddChild = () => {
     setFormData({ ...formData, gender: value });
   }
 
-  const handleAwcCenterChange = (value: string) => {
-    setFormData({ ...formData, awcCenter: value });
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -87,14 +83,13 @@ const AddChild = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="awcCenter">AWC Center</Label>
-                <Select onValueChange={handleAwcCenterChange} required>
-                  <SelectTrigger><SelectValue placeholder="Select AWC Center" /></SelectTrigger>
-                  <SelectContent>
-                    {awcCenters.map((center) => (
-                      <SelectItem key={center} value={center}>{center}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="awcCenter"
+                  placeholder="Enter AWC Center name"
+                  required
+                  onChange={handleChange}
+                  value={formData.awcCenter}
+                />
               </div>
             </div>
             <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
