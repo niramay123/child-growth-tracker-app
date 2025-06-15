@@ -1,11 +1,12 @@
+
 import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, AlertTriangle, MapPin, Calendar, Download } from 'lucide-react';
+import { PlusCircle, AlertTriangle, MapPin, Calendar } from 'lucide-react';
 import AddGrowthRecordModal from '@/components/AddGrowthRecordModal';
 import { format, differenceInMonths } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,14 +34,44 @@ const fetchChildById = async (id: string | undefined) => {
   return data;
 };
 
+// Fetch all growth records for a specific child, order by date descending
+const fetchGrowthRecords = async (childId: string) => {
+  const { data, error } = await supabase
+    .from('growth_records')
+    .select('*')
+    .eq('child_id', childId)
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
 const ChildDetail = () => {
   const { id } = useParams();
+  const queryClient = useQueryClient();
+
+  const [showAddRecord, setShowAddRecord] = useState(false);
 
   const { data: child, isLoading, error } = useQuery({
     queryKey: ['child', id],
     queryFn: () => fetchChildById(id),
     enabled: !!id,
   });
+
+  // Fetch growth records for this child
+  const { data: growthRecords = [], isLoading: loadingGrowth } = useQuery({
+    queryKey: ['growth_records', id],
+    queryFn: () => fetchGrowthRecords(id!),
+    enabled: !!id,
+  });
+
+  // After adding a record, refresh the list
+  const handleAddRecordModalChange = (isOpen: boolean) => {
+    setShowAddRecord(isOpen);
+    if (!isOpen) {
+      queryClient.invalidateQueries({ queryKey: ['growth_records', id] });
+      queryClient.invalidateQueries({ queryKey: ['child', id] }); // In case status is updated elsewhere
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center py-12">Loading child data...</div>;
@@ -57,8 +88,8 @@ const ChildDetail = () => {
   const ageYears = Math.floor(childAge / 12);
   const ageMonths = childAge % 12;
 
-  // Use nulls for latestRecord/status since there is no real z-score/growth data
-  const latestRecord = null;
+  // Use latest record if exists, else fallback to child.status
+  const latestRecord = growthRecords.length > 0 ? growthRecords[0] : null;
   const currentStatus = latestRecord?.classification || child.status || null;
 
   const getAlert = () => {
@@ -75,6 +106,47 @@ const ChildDetail = () => {
       </Alert>
     );
   };
+
+  // For each record, calculate relevant values
+  const rows = growthRecords.map((rec: any) => {
+    // Calculate age in months at the record date
+    const monthsAtMeasurement = differenceInMonths(new Date(rec.date), new Date(child.dob));
+    // Calculate Z-Score, classification based on rec.weight, rec.height, rec.date, child.gender, etc
+    let zScore = null;
+    let classification = null;
+    try {
+      zScore = calculateZScore({
+        gender: child.gender,
+        dob: child.dob,
+        date: rec.date,
+        weight: rec.weight,
+        height: rec.height,
+        edema: rec.has_edema,
+      });
+      classification = getClassificationLabel(
+        calculateZScore({
+          gender: child.gender,
+          dob: child.dob,
+          date: rec.date,
+          weight: rec.weight,
+          height: rec.height,
+          edema: rec.has_edema,
+        })?.classification || (child.status ?? 'normal')
+      );
+    } catch (e) {
+      // fallback
+      zScore = null;
+      classification = getClassificationLabel(child.status ?? 'normal');
+    }
+
+    return {
+      ...rec,
+      monthsAtMeasurement,
+      formattedDate: format(new Date(rec.date), 'dd MMM yyyy'),
+      zScore: typeof zScore === 'object' ? zScore?.whz ?? null : zScore,
+      classification: typeof zScore === 'object' ? getClassificationLabel(zScore?.classification) : classification,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -118,14 +190,14 @@ const ChildDetail = () => {
           <div>
             <CardTitle>Growth History & Z-Score Analysis</CardTitle>
             <CardDescription>
-              {!latestRecord ? (
-                  <span>No growth records have been added yet. Growth history coming soon.</span>
+              {growthRecords.length === 0 ? (
+                <span>No growth records have been added yet. Add the first record below.</span>
               ) : (
-                  "Track the child's growth and nutritional status over time with WHO Z-score classifications."
+                "Track the child's growth and nutritional status over time with WHO Z-score classifications."
               )}
             </CardDescription>
           </div>
-          <Button onClick={() => {}}>
+          <Button onClick={() => setShowAddRecord(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Record
           </Button>
@@ -143,16 +215,42 @@ const ChildDetail = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Since there are no records, display a message */}
-              <TableRow>
-                <TableCell colSpan={6} className="text-center">
-                  No growth records available for this child yet.
-                </TableCell>
-              </TableRow>
+              {growthRecords.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    No growth records available for this child yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((rec) => (
+                  <TableRow key={rec.id}>
+                    <TableCell>{rec.formattedDate}</TableCell>
+                    <TableCell>{rec.monthsAtMeasurement}</TableCell>
+                    <TableCell>{rec.weight}</TableCell>
+                    <TableCell>{rec.height}</TableCell>
+                    <TableCell>
+                      {rec.zScore !== null
+                        ? typeof rec.zScore === 'number'
+                          ? rec.zScore.toFixed(2)
+                          : rec.zScore
+                        : '--'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getBadgeColor(rec.classification)}>{rec.classification}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+      
+      <AddGrowthRecordModal
+        isOpen={showAddRecord}
+        onOpenChange={handleAddRecordModalChange}
+        childId={id!}
+      />
     </div>
   );
 };

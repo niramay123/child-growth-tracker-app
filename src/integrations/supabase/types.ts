@@ -45,6 +45,44 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_records: {
+        Row: {
+          child_id: string
+          created_at: string | null
+          date: string
+          has_edema: boolean
+          height: number
+          id: string
+          weight: number
+        }
+        Insert: {
+          child_id: string
+          created_at?: string | null
+          date: string
+          has_edema?: boolean
+          height: number
+          id?: string
+          weight: number
+        }
+        Update: {
+          child_id?: string
+          created_at?: string | null
+          date?: string
+          has_edema?: boolean
+          height?: number
+          id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_records_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
