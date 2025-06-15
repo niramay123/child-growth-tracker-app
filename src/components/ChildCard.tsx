@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, MapPin } from 'lucide-react';
+import { ArrowRight, MapPin, Building } from 'lucide-react';
 import { differenceInMonths, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
@@ -58,8 +58,9 @@ const ChildCard = ({ child }: { child: Child }) => {
           <span>{child.village}</span>
         </div>
         {child.awcCenter && (
-          <div className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-            {child.awcCenter}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Building className="h-3 w-3" />
+            <span>{child.awcCenter}</span>
           </div>
         )}
         <p className="text-sm text-muted-foreground">DOB: {format(new Date(child.dob), 'dd MMM yyyy')}</p>

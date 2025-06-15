@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,16 +15,11 @@ const mockChildren = [
   { id: '5', name: 'Karan Verma', dob: '2022-08-01', gender: 'male', village: 'Sitapur', status: 'sam', awcCenter: 'AWC Center 2 - Sitapur' },
 ];
 
-const awcCenters = [
-  'AWC Center 1 - Rampur',
-  'AWC Center 2 - Sitapur', 
-  'AWC Center 3 - Gopalganj',
-  'AWC Center 4 - Rampur East',
-  'AWC Center 5 - Sitapur North'
-];
-
 const Dashboard = () => {
   const [selectedAwcCenter, setSelectedAwcCenter] = useState<string>('all');
+
+  // Dynamically create a list of unique AWC centers from the children data
+  const awcCenters = [...new Set(mockChildren.map(child => child.awcCenter).filter(Boolean))];
 
   // Filter children based on selected AWC Center
   const filteredChildren = selectedAwcCenter === 'all' 
