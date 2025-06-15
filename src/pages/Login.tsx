@@ -10,28 +10,32 @@ import { Baby } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // If logged in, redirect to homepage
+  if (isAuthenticated) {
+    navigate('/');
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // This is where you would call your backend API
-    // For demonstration, we'll simulate a successful login.
-    setTimeout(() => {
-      // Mock response from your API: loginUser controller
-      const mockToken = 'fake-jwt-token';
-      const mockRole = 'parent';
-      const mockParentId = 'mock-parent-id';
-      login(mockToken, mockRole, mockParentId);
-      setIsLoading(false);
+
+    const { error } = await login(email, password);
+    setIsLoading(false);
+
+    if (error) {
+      toast({ title: "Login failed", description: error.message ?? "Check your credentials.", variant: "destructive" });
+    } else {
       toast({ title: "Login Successful", description: "Welcome back!" });
       navigate('/');
-    }, 1000);
+    }
   };
 
   return (
@@ -45,12 +49,12 @@ const Login = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" type="tel" placeholder="Your phone number" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="Your email address" required value={email} onChange={e => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Your password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input id="password" type="password" placeholder="Your password" required value={password} onChange={e => setPassword(e.target.value)} />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing In...' : 'Sign In'}

@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Baby } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -21,6 +21,7 @@ const Register = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth();
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,12 +35,16 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // This is where you would call your backend API (registerUser controller)
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({ title: "Registration Successful", description: "You can now log in with your credentials." });
+
+    const { error } = await register(formData.email, formData.password);
+    setIsLoading(false);
+
+    if (error) {
+      toast({ title: "Registration failed", description: error.message ?? "An error occurred.", variant: "destructive" });
+    } else {
+      toast({ title: "Registration Successful", description: "Please verify your email and log in with your credentials." });
       navigate('/login');
-    }, 1000);
+    }
   };
 
   return (
