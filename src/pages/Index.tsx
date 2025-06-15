@@ -188,24 +188,24 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="SAM Cases"
-          value={loadingStatus ? '...' : statusCounts.sam}
+          value={loadingStatus ? 0 : statusCounts.sam}
           icon={AlertTriangle}
           color="text-red-500"
-          description="Severe Acute Malnutrition - Requires NRC admission"
+          description={loadingStatus ? "Loading..." : "Severe Acute Malnutrition - Requires NRC admission"}
         />
         <StatsCard
           title="MAM Cases"
-          value={loadingStatus ? '...' : statusCounts.mam}
+          value={loadingStatus ? 0 : statusCounts.mam}
           icon={Activity}
           color="text-yellow-500"
-          description="Moderate Acute Malnutrition - Requires VCDC support"
+          description={loadingStatus ? "Loading..." : "Moderate Acute Malnutrition - Requires VCDC support"}
         />
         <StatsCard
           title="Normal Growth"
-          value={loadingStatus ? '...' : statusCounts.normal}
+          value={loadingStatus ? 0 : statusCounts.normal}
           icon={Heart}
           color="text-green-500"
-          description="Healthy nutritional status"
+          description={loadingStatus ? "Loading..." : "Healthy nutritional status"}
         />
       </div>
 
