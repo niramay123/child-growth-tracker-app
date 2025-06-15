@@ -1,6 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,23 +12,7 @@ import { format, differenceInMonths } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { calculateZScore, getClassificationLabel, getAlertMessage } from '@/utils/zScoreCalculator';
 import NutritionRecommendations from '@/components/NutritionRecommendations';
-
-// Mock data with updated calculations
-const mockChild = { 
-  id: '1', 
-  name: 'Ravi Kumar', 
-  dob: '2023-01-15', 
-  gender: 'male' as const, 
-  village: 'Rampur',
-  awcCenter: 'AWC Center 1 - Rampur'
-};
-
-const mockHistory = [
-  { id: 'rec1', date: '2023-04-15', weight: 5.2, height: 58 },
-  { id: 'rec2', date: '2023-07-15', weight: 6.8, height: 65 },
-  { id: 'rec3', date: '2023-10-15', weight: 7.5, height: 70 },
-  { id: 'rec4', date: '2024-01-15', weight: 7.2, height: 74 },
-];
+import { supabase } from '@/integrations/supabase/client';
 
 const getBadgeColor = (classification: string) => {
   switch (classification) {
@@ -36,28 +21,54 @@ const getBadgeColor = (classification: string) => {
     case 'normal': return 'bg-green-500 hover:bg-green-600 text-white';
     default: return 'bg-gray-500 hover:bg-gray-600 text-white';
   }
-}
+};
+
+const fetchChildById = async (id: string | undefined) => {
+  if (!id) return null;
+  const { data, error } = await supabase
+    .from('children')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
 
 const ChildDetail = () => {
   const { id } = useParams();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const child = mockChild;
-  const history = mockHistory;
 
-  // Calculate Z-scores and classifications for all records
-  const processedHistory = history.map(record => {
-    const recordDate = new Date(record.date);
-    const ageInMonths = differenceInMonths(recordDate, new Date(child.dob));
-    const zScoreResult = calculateZScore(record.weight, record.height, ageInMonths, child.gender);
-    
-    return {
-      ...record,
-      ageInMonths,
-      zScore: zScoreResult.whz,
-      classification: zScoreResult.classification,
-      alert: zScoreResult.alert
-    };
+  // Query for child data using id param
+  const { data: child, isLoading, error } = useQuery({
+    queryKey: ['child', id],
+    queryFn: () => fetchChildById(id),
+    enabled: !!id,
   });
+
+  // We don't yet have a real growth history feature, so we'll show a placeholder/demo for now
+  // If you implement real growth records in the future, this should be replaced to fetch from Supabase!
+  const mockHistory = [
+    { id: 'rec1', date: child?.dob || '', weight: 5.2, height: 58 },
+    { id: 'rec2', date: child?.dob || '', weight: 6.8, height: 65 },
+    { id: 'rec3', date: child?.dob || '', weight: 7.5, height: 70 },
+    { id: 'rec4', date: child?.dob || '', weight: 7.2, height: 74 },
+  ];
+
+  const processedHistory = useMemo(() => {
+    if (!child) return [];
+    return mockHistory.map(record => {
+      const recordDate = record.date ? new Date(record.date) : new Date();
+      const ageInMonths = differenceInMonths(recordDate, new Date(child.dob));
+      const zScoreResult = calculateZScore(record.weight, record.height, ageInMonths, child.gender);
+
+      return {
+        ...record,
+        ageInMonths,
+        zScore: zScoreResult.whz,
+        classification: zScoreResult.classification,
+        alert: zScoreResult.alert,
+      };
+    });
+  }, [child]);
 
   const sortedHistory = [...processedHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const latestRecord = sortedHistory.length > 0 ? sortedHistory[0] : null;
@@ -67,10 +78,8 @@ const ChildDetail = () => {
     if (!currentStatus || currentStatus === 'normal') {
       return null;
     }
-
     const alertConfig = getAlertMessage(currentStatus);
     const isSam = currentStatus === 'sam';
-    
     return (
       <Alert variant={isSam ? 'destructive' : 'default'} className={isSam ? '' : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'}>
         <AlertTriangle className="h-4 w-4" />
@@ -79,6 +88,17 @@ const ChildDetail = () => {
       </Alert>
     );
   };
+
+  if (isLoading) {
+    return <div className="text-center py-12">Loading child data...</div>;
+  }
+  if (error || !child) {
+    return (
+      <div className="text-center py-12 text-red-500">
+        {error ? 'Error loading child data.' : 'Child not found.'}
+      </div>
+    );
+  }
 
   const childAge = differenceInMonths(new Date(), new Date(child.dob));
   const ageYears = Math.floor(childAge / 12);
@@ -108,7 +128,7 @@ const ChildDetail = () => {
               </span>
             </div>
             <div className="text-xs bg-muted/50 px-2 py-1 rounded w-fit">
-              {child.awcCenter}
+              {child.awc_center}
             </div>
             <p className="text-sm">Born: {format(new Date(child.dob), 'dd MMM yyyy')}</p>
           </CardDescription>
@@ -127,7 +147,7 @@ const ChildDetail = () => {
             <CardTitle>Growth History & Z-Score Analysis</CardTitle>
             <CardDescription>Track the child's growth and nutritional status over time with WHO Z-score classifications.</CardDescription>
           </div>
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={() => {}}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Record
           </Button>
@@ -147,12 +167,12 @@ const ChildDetail = () => {
             <TableBody>
               {sortedHistory.map((record) => (
                 <TableRow key={record.id}>
-                  <TableCell>{format(new Date(record.date), 'dd MMM yyyy')}</TableCell>
+                  <TableCell>{record.date ? format(new Date(record.date), 'dd MMM yyyy') : '-'}</TableCell>
                   <TableCell>{record.ageInMonths}m</TableCell>
                   <TableCell>{record.weight}</TableCell>
                   <TableCell>{record.height}</TableCell>
                   <TableCell className="font-mono">
-                    {record.zScore.toFixed(2)} SD
+                    {record.zScore?.toFixed(2)} SD
                   </TableCell>
                   <TableCell>
                     <Badge className={getBadgeColor(record.classification)}>
@@ -165,8 +185,6 @@ const ChildDetail = () => {
           </Table>
         </CardContent>
       </Card>
-      
-      <AddGrowthRecordModal isOpen={isModalOpen} onOpenChange={setIsModalOpen} childId={child.id} />
     </div>
   );
 };
