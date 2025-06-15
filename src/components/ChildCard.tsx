@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { differenceInMonths, format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
 interface Child {
   id: string;
@@ -11,6 +12,16 @@ interface Child {
   dob: string;
   gender: string;
   village: string;
+  status?: string;
+}
+
+const getBadgeColor = (status?: string) => {
+  switch (status) {
+    case 'sam': return 'bg-red-500 hover:bg-red-600';
+    case 'mam': return 'bg-yellow-500 hover:bg-yellow-600';
+    case 'normal': return 'bg-green-500 hover:bg-green-600';
+    default: return 'hidden';
+  }
 }
 
 const ChildCard = ({ child }: { child: Child }) => {
@@ -21,7 +32,12 @@ const ChildCard = ({ child }: { child: Child }) => {
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>{child.name}</CardTitle>
+        <div className="flex justify-between items-start">
+          <CardTitle>{child.name}</CardTitle>
+          <Badge className={`${getBadgeColor(child.status)} text-primary-foreground px-2 py-1 text-xs`}>
+            {child.status?.toUpperCase()}
+          </Badge>
+        </div>
         <CardDescription>
           {ageYears > 0 ? `${ageYears}y ` : ''}{ageMonths}m old {child.gender} from {child.village}
         </CardDescription>
