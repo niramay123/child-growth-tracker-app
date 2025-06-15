@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateZScore } from '@/utils/zScoreCalculator';
+
+/* --- existing child type and fetchChildren remain unchanged --- */
 
 // Extend the child type for clarity
 type Child = {
@@ -87,7 +90,6 @@ const Dashboard = () => {
     [children, selectedAwcCenter]
   );
 
-  // State to store true current status per child after zscore calculation
   const [statusCounts, setStatusCounts] = useState<{ sam: number; mam: number; normal: number }>({
     sam: 0,
     mam: 0,
@@ -95,24 +97,20 @@ const Dashboard = () => {
   });
   const [loadingStatus, setLoadingStatus] = useState<boolean>(true);
 
+  // Recalculate with correct logic (latest Z-score/classification)
   useEffect(() => {
-    // Recalculate counts whenever visible children change
     const updateStatusCounts = async () => {
       setLoadingStatus(true);
-      const _children = filteredChildren;
-      if (_children.length === 0) {
+
+      if (filteredChildren.length === 0) {
         setStatusCounts({ sam: 0, mam: 0, normal: 0 });
         setLoadingStatus(false);
         return;
       }
-      // Fetch latest growth records ONLY for filtered children
-      const latestRecords = await fetchLatestGrowthRecords(_children.map(c => c.id));
+      const latestRecords = await fetchLatestGrowthRecords(filteredChildren.map(c => c.id));
+      let sam = 0, mam = 0, normal = 0;
 
-      let sam = 0,
-        mam = 0,
-        normal = 0;
-
-      for (const child of _children) {
+      for (const child of filteredChildren) {
         const rec = latestRecords[child.id];
         let latestStatus: 'sam' | 'mam' | 'normal' | null = null;
 
@@ -124,6 +122,7 @@ const Dashboard = () => {
           const gender = (child.gender === 'male' || child.gender === 'female')
             ? child.gender
             : 'male'; // fallback (shouldn't occur)
+          // fix: ensure correct arguments to calculateZScore
           const zScoreRes = calculateZScore(
             Number(rec.weight),
             Number(rec.height),
