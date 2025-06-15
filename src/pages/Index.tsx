@@ -1,31 +1,55 @@
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, AlertTriangle, Activity, Heart, Filter } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ChildCard from '@/components/ChildCard';
 import StatsCard from '@/components/StatsCard';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-// Updated mock data with proper AWC Centers and status
-const mockChildren = [
-  { id: '1', name: 'Ravi Kumar', dob: '2023-01-15', gender: 'male', village: 'Rampur', status: 'normal', awcCenter: 'AWC Center 1 - Rampur' },
-  { id: '2', name: 'Sunita Devi', dob: '2022-11-20', gender: 'female', village: 'Sitapur', status: 'mam', awcCenter: 'AWC Center 2 - Sitapur' },
-  { id: '3', name: 'Amit Singh', dob: '2024-03-10', gender: 'male', village: 'Gopalganj', status: 'sam', awcCenter: 'AWC Center 3 - Gopalganj' },
-  { id: '4', name: 'Priya Sharma', dob: '2023-05-22', gender: 'female', village: 'Rampur', status: 'normal', awcCenter: 'AWC Center 1 - Rampur' },
-  { id: '5', name: 'Karan Verma', dob: '2022-08-01', gender: 'male', village: 'Sitapur', status: 'sam', awcCenter: 'AWC Center 2 - Sitapur' },
-];
+const fetchChildren = async (userId: string | undefined) => {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from('children')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return data || [];
+};
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
+  // Fetch children via React Query
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: ['children', user?.id],
+    queryFn: () => fetchChildren(user?.id),
+    enabled: !!user?.id,
+  });
+
+  // Safely map DB structure to UI, handling nulls or missing
+  const children = useMemo(() => (data || []).map((child: any) => ({
+    id: child.id,
+    name: child.name,
+    dob: child.dob,
+    gender: child.gender,
+    village: child.village ?? '',
+    status: child.status ?? undefined,
+    awcCenter: child.awc_center ?? '',
+  })), [data]);
+
   const [selectedAwcCenter, setSelectedAwcCenter] = useState<string>('all');
+  const awcCenters = useMemo(() => (
+    [...new Set(children.map(child => child.awcCenter).filter(Boolean))]
+  ), [children]);
 
-  // Get unique AWC centers from the children data
-  const awcCenters = [...new Set(mockChildren.map(child => child.awcCenter).filter(Boolean))];
-
-  // Filter children based on selected AWC Center
-  const filteredChildren = selectedAwcCenter === 'all' 
-    ? mockChildren 
-    : mockChildren.filter(child => child.awcCenter === selectedAwcCenter);
+  const filteredChildren = selectedAwcCenter === 'all'
+    ? children
+    : children.filter(child => child.awcCenter === selectedAwcCenter);
 
   const samCount = filteredChildren.filter((child) => child.status === 'sam').length;
   const mamCount = filteredChildren.filter((child) => child.status === 'mam').length;
@@ -92,8 +116,13 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-        
-        {filteredChildren.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">Loading children...</div>
+        ) : error ? (
+          <div className="text-center py-12 text-red-500">
+            Error loading children.
+          </div>
+        ) : filteredChildren.length > 0 ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredChildren.map((child) => (
               <ChildCard key={child.id} child={child} />
@@ -103,8 +132,8 @@ const Dashboard = () => {
           <div className="text-center py-12 border-2 border-dashed rounded-lg">
             <h2 className="text-xl font-semibold">No children found</h2>
             <p className="text-muted-foreground mt-2">
-              {selectedAwcCenter === 'all' 
-                ? 'Get started by adding your first child.' 
+              {selectedAwcCenter === 'all'
+                ? 'Get started by adding your first child.'
                 : 'No children found for the selected AWC Center.'}
             </p>
           </div>
