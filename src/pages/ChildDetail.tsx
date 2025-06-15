@@ -1,18 +1,29 @@
 
-import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, AlertTriangle, MapPin, Calendar } from 'lucide-react';
+import { PlusCircle, Trash2, AlertTriangle, MapPin, Calendar } from 'lucide-react';
 import AddGrowthRecordModal from '@/components/AddGrowthRecordModal';
 import { format, differenceInMonths } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { calculateZScore, getClassificationLabel, getAlertMessage } from '@/utils/zScoreCalculator';
 import NutritionRecommendations from '@/components/NutritionRecommendations';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 
 const getBadgeColor = (classification: string) => {
   switch (classification) {
@@ -34,7 +45,6 @@ const fetchChildById = async (id: string | undefined) => {
   return data;
 };
 
-// Fetch all growth records for a specific child, order by date descending
 const fetchGrowthRecords = async (childId: string) => {
   const { data, error } = await supabase
     .from('growth_records')
@@ -45,11 +55,26 @@ const fetchGrowthRecords = async (childId: string) => {
   return data || [];
 };
 
+const deleteGrowthRecord = async (recordId: string) => {
+  const { error } = await supabase.from('growth_records').delete().eq('id', recordId);
+  if (error) throw error;
+};
+
+const deleteChild = async (childId: string) => {
+  const { error } = await supabase.from('children').delete().eq('id', childId);
+  if (error) throw error;
+};
+
 const ChildDetail = () => {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [showAddRecord, setShowAddRecord] = useState(false);
+  const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
+  const [showDeleteChild, setShowDeleteChild] = useState(false);
+  const [deletingChild, setDeletingChild] = useState(false);
+  const [deletingRecord, setDeletingRecord] = useState(false);
 
   const { data: child, isLoading, error } = useQuery({
     queryKey: ['child', id],
@@ -57,7 +82,6 @@ const ChildDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch growth records for this child
   const { data: growthRecords = [], isLoading: loadingGrowth } = useQuery({
     queryKey: ['growth_records', id],
     queryFn: () => fetchGrowthRecords(id!),
@@ -69,7 +93,32 @@ const ChildDetail = () => {
     setShowAddRecord(isOpen);
     if (!isOpen) {
       queryClient.invalidateQueries({ queryKey: ['growth_records', id] });
-      queryClient.invalidateQueries({ queryKey: ['child', id] }); // In case status is updated elsewhere
+      queryClient.invalidateQueries({ queryKey: ['child', id] });
+    }
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!deleteRecordId) return;
+    setDeletingRecord(true);
+    try {
+      await deleteGrowthRecord(deleteRecordId);
+      queryClient.invalidateQueries({ queryKey: ['growth_records', id] });
+      setDeleteRecordId(null);
+    } finally {
+      setDeletingRecord(false);
+    }
+  };
+
+  const handleDeleteChild = async () => {
+    if (!id) return;
+    setDeletingChild(true);
+    try {
+      await deleteChild(id);
+      setShowDeleteChild(false);
+      navigate('/');
+      queryClient.invalidateQueries({ queryKey: ['children'] });
+    } finally {
+      setDeletingChild(false);
     }
   };
 
@@ -89,8 +138,25 @@ const ChildDetail = () => {
   const ageMonths = childAge % 12;
 
   // Use latest record if exists, else fallback to child.status
-  const latestRecord = growthRecords.length > 0 ? growthRecords[0] : null;
-  const currentStatus = latestRecord?.classification || child.status || null;
+  let currentStatus: string | null = null;
+  if (growthRecords.length > 0) {
+    // Calculate most recent classification using actual fields (record does not have classification)
+    const rec = growthRecords[0];
+    const zScoreRes = calculateZScore({
+      gender: child.gender,
+      dob: child.dob,
+      date: rec.date,
+      weight: rec.weight,
+      height: rec.height,
+      edema: rec.has_edema,
+    });
+    currentStatus =
+      typeof zScoreRes === 'object' && zScoreRes?.classification
+        ? zScoreRes.classification
+        : child.status ?? null;
+  } else {
+    currentStatus = child.status ?? null;
+  }
 
   const getAlert = () => {
     if (!currentStatus || currentStatus === 'normal') {
@@ -107,15 +173,14 @@ const ChildDetail = () => {
     );
   };
 
-  // For each record, calculate relevant values
+  // For each record, calculate relevant values for display
   const rows = growthRecords.map((rec: any) => {
-    // Calculate age in months at the record date
     const monthsAtMeasurement = differenceInMonths(new Date(rec.date), new Date(child.dob));
-    // Calculate Z-Score, classification based on rec.weight, rec.height, rec.date, child.gender, etc
-    let zScore = null;
-    let classification = null;
+    let zScoreObj = null;
+    let whz = null;
+    let classificationLabel = null;
     try {
-      zScore = calculateZScore({
+      zScoreObj = calculateZScore({
         gender: child.gender,
         dob: child.dob,
         date: rec.date,
@@ -123,28 +188,22 @@ const ChildDetail = () => {
         height: rec.height,
         edema: rec.has_edema,
       });
-      classification = getClassificationLabel(
-        calculateZScore({
-          gender: child.gender,
-          dob: child.dob,
-          date: rec.date,
-          weight: rec.weight,
-          height: rec.height,
-          edema: rec.has_edema,
-        })?.classification || (child.status ?? 'normal')
-      );
+      whz = typeof zScoreObj === 'object' ? zScoreObj?.whz ?? null : null;
+      classificationLabel =
+        typeof zScoreObj === 'object'
+          ? getClassificationLabel(zScoreObj?.classification)
+          : getClassificationLabel(child.status ?? 'normal');
     } catch (e) {
-      // fallback
-      zScore = null;
-      classification = getClassificationLabel(child.status ?? 'normal');
+      whz = null;
+      classificationLabel = getClassificationLabel(child.status ?? 'normal');
     }
 
     return {
       ...rec,
       monthsAtMeasurement,
       formattedDate: format(new Date(rec.date), 'dd MMM yyyy'),
-      zScore: typeof zScore === 'object' ? zScore?.whz ?? null : zScore,
-      classification: typeof zScore === 'object' ? getClassificationLabel(zScore?.classification) : classification,
+      zScore: whz,
+      classification: classificationLabel,
     };
   });
 
@@ -159,6 +218,37 @@ const ChildDetail = () => {
                 {getClassificationLabel(currentStatus)}
               </Badge>
             )}
+            <AlertDialog open={showDeleteChild} onOpenChange={setShowDeleteChild}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="ml-4"
+                  onClick={() => setShowDeleteChild(true)}
+                >
+                  <Trash2 className="mr-1 h-4 w-4" />
+                  Delete Child
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete child "{child.name}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove this child and all growth records. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingChild}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={deletingChild}
+                    onClick={handleDeleteChild}
+                  >
+                    {deletingChild ? 'Deleting...' : 'Yes, Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardTitle>
           <CardDescription className="space-y-2">
             <div className="flex items-center gap-4 text-sm">
@@ -212,12 +302,13 @@ const ChildDetail = () => {
                 <TableHead>Height (cm)</TableHead>
                 <TableHead>Z-Score (WHZ)</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {growthRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center">
+                  <TableCell colSpan={7} className="text-center">
                     No growth records available for this child yet.
                   </TableCell>
                 </TableRow>
@@ -229,7 +320,7 @@ const ChildDetail = () => {
                     <TableCell>{rec.weight}</TableCell>
                     <TableCell>{rec.height}</TableCell>
                     <TableCell>
-                      {rec.zScore !== null
+                      {rec.zScore !== null && rec.zScore !== undefined
                         ? typeof rec.zScore === 'number'
                           ? rec.zScore.toFixed(2)
                           : rec.zScore
@@ -237,6 +328,39 @@ const ChildDetail = () => {
                     </TableCell>
                     <TableCell>
                       <Badge className={getBadgeColor(rec.classification)}>{rec.classification}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <AlertDialog open={deleteRecordId === rec.id} onOpenChange={open => setDeleteRecordId(open ? rec.id : null)}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="text-red-500 hover:bg-red-50 px-2"
+                            size="icon"
+                            aria-label="Delete Growth Record"
+                            onClick={() => setDeleteRecordId(rec.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this record?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this growth record? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={deletingRecord}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-red-600 hover:bg-red-700"
+                              disabled={deletingRecord}
+                              onClick={handleDeleteRecord}
+                            >
+                              {deletingRecord ? 'Deleting...' : 'Yes, Delete'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))
