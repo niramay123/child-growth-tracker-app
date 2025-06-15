@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ChildCard from '@/components/ChildCard';
 import StatsCard from '@/components/StatsCard';
 
-// Updated mock data with AWC Centers
+// Updated mock data with proper AWC Centers and status
 const mockChildren = [
   { id: '1', name: 'Ravi Kumar', dob: '2023-01-15', gender: 'male', village: 'Rampur', status: 'normal', awcCenter: 'AWC Center 1 - Rampur' },
   { id: '2', name: 'Sunita Devi', dob: '2022-11-20', gender: 'female', village: 'Sitapur', status: 'mam', awcCenter: 'AWC Center 2 - Sitapur' },
@@ -18,7 +19,7 @@ const mockChildren = [
 const Dashboard = () => {
   const [selectedAwcCenter, setSelectedAwcCenter] = useState<string>('all');
 
-  // Dynamically create a list of unique AWC centers from the children data
+  // Get unique AWC centers from the children data
   const awcCenters = [...new Set(mockChildren.map(child => child.awcCenter).filter(Boolean))];
 
   // Filter children based on selected AWC Center

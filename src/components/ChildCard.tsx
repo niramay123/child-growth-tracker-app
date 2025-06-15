@@ -44,9 +44,16 @@ const ChildCard = ({ child }: { child: Child }) => {
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{child.name}</CardTitle>
-          <Badge className={getBadgeColor(child.status)}>
-            {getStatusLabel(child.status)}
-          </Badge>
+          {child.status && child.status !== 'normal' && (
+            <Badge className={getBadgeColor(child.status)}>
+              {getStatusLabel(child.status)}
+            </Badge>
+          )}
+          {child.status === 'normal' && (
+            <Badge className={getBadgeColor(child.status)}>
+              {getStatusLabel(child.status)}
+            </Badge>
+          )}
         </div>
         <CardDescription>
           {ageYears > 0 ? `${ageYears}y ` : ''}{ageMonths}m old {child.gender}

@@ -8,14 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 
-const awcCenters = [
-  'AWC Center 1 - Rampur',
-  'AWC Center 2 - Sitapur', 
-  'AWC Center 3 - Gopalganj',
-  'AWC Center 4 - Rampur East',
-  'AWC Center 5 - Sitapur North'
-];
-
 const AddChild = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -39,10 +31,25 @@ const AddChild = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Validate all fields are filled
+    if (!formData.name || !formData.dob || !formData.gender || !formData.village || !formData.awcCenter) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
     // API call to `createChild` controller would go here
     setTimeout(() => {
       setIsLoading(false);
-      toast({ title: "Child Added", description: `${formData.name} has been added successfully to ${formData.awcCenter}.` });
+      toast({ 
+        title: "Child Added", 
+        description: `${formData.name} has been added successfully to ${formData.awcCenter}.` 
+      });
       navigate('/');
     }, 1000);
   };
@@ -57,16 +64,16 @@ const AddChild = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" placeholder="Child's full name" required onChange={handleChange} />
+              <Label htmlFor="name">Full Name *</Label>
+              <Input id="name" placeholder="Child's full name" required onChange={handleChange} value={formData.name} />
             </div>
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="dob">Date of Birth</Label>
-                <Input id="dob" type="date" required onChange={handleChange} />
+                <Label htmlFor="dob">Date of Birth *</Label>
+                <Input id="dob" type="date" required onChange={handleChange} value={formData.dob} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="gender">Gender</Label>
+                <Label htmlFor="gender">Gender *</Label>
                  <Select onValueChange={handleGenderChange} required>
                     <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                     <SelectContent>
@@ -78,11 +85,11 @@ const AddChild = () => {
             </div>
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="village">Village</Label>
-                <Input id="village" placeholder="Child's village" required onChange={handleChange} />
+                <Label htmlFor="village">Village *</Label>
+                <Input id="village" placeholder="Child's village" required onChange={handleChange} value={formData.village} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="awcCenter">AWC Center</Label>
+                <Label htmlFor="awcCenter">AWC Center *</Label>
                 <Input
                   id="awcCenter"
                   placeholder="Enter AWC Center name"

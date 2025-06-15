@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, AlertTriangle, MapPin, Calendar } from 'lucide-react';
+import { PlusCircle, AlertTriangle, MapPin, Calendar, Download } from 'lucide-react';
 import AddGrowthRecordModal from '@/components/AddGrowthRecordModal';
 import { format, differenceInMonths } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { calculateZScore, getClassificationLabel, getAlertMessage } from '@/utils/zScoreCalculator';
+import NutritionRecommendations from '@/components/NutritionRecommendations';
 
 // Mock data with updated calculations
 const mockChild = { 
@@ -115,6 +116,10 @@ const ChildDetail = () => {
       </Card>
 
       {getAlert()}
+
+      {currentStatus && (currentStatus === 'sam' || currentStatus === 'mam') && (
+        <NutritionRecommendations status={currentStatus} childName={child.name} />
+      )}
 
       <Card>
         <CardHeader className="flex flex-row justify-between items-center">
