@@ -21,7 +21,8 @@ const AddChild = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { token } = useAuth();
+  // Removed: const { token } = useAuth();
+  // Auth is handled by supabase session
 
   // Get logged-in user id from Supabase
   // We'll fetch it from the supabase.auth.getUser() method.
@@ -156,3 +157,4 @@ const AddChild = () => {
 };
 
 export default AddChild;
+
