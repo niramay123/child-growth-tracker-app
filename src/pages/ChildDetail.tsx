@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -142,14 +141,15 @@ const ChildDetail = () => {
   if (growthRecords.length > 0) {
     // Calculate most recent classification using actual fields (record does not have classification)
     const rec = growthRecords[0];
-    const zScoreRes = calculateZScore({
-      gender: child.gender,
-      dob: child.dob,
-      date: rec.date,
-      weight: rec.weight,
-      height: rec.height,
-      edema: rec.has_edema,
-    });
+    // Calculate age at record
+    const ageInMonths = differenceInMonths(new Date(rec.date), new Date(child.dob));
+    const zScoreRes = calculateZScore(
+      rec.weight,
+      rec.height,
+      ageInMonths,
+      child.gender,
+      rec.has_edema
+    );
     currentStatus =
       typeof zScoreRes === 'object' && zScoreRes?.classification
         ? zScoreRes.classification
@@ -180,14 +180,13 @@ const ChildDetail = () => {
     let whz = null;
     let classificationLabel = null;
     try {
-      zScoreObj = calculateZScore({
-        gender: child.gender,
-        dob: child.dob,
-        date: rec.date,
-        weight: rec.weight,
-        height: rec.height,
-        edema: rec.has_edema,
-      });
+      zScoreObj = calculateZScore(
+        rec.weight,
+        rec.height,
+        monthsAtMeasurement,
+        child.gender,
+        rec.has_edema
+      );
       whz = typeof zScoreObj === 'object' ? zScoreObj?.whz ?? null : null;
       classificationLabel =
         typeof zScoreObj === 'object'
