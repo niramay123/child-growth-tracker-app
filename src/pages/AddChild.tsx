@@ -8,12 +8,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 
+const awcCenters = [
+  'AWC Center 1 - Rampur',
+  'AWC Center 2 - Sitapur', 
+  'AWC Center 3 - Gopalganj',
+  'AWC Center 4 - Rampur East',
+  'AWC Center 5 - Sitapur North'
+];
+
 const AddChild = () => {
   const [formData, setFormData] = useState({
     name: '',
     dob: '',
     gender: '',
     village: '',
+    awcCenter: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -27,13 +36,17 @@ const AddChild = () => {
     setFormData({ ...formData, gender: value });
   }
 
+  const handleAwcCenterChange = (value: string) => {
+    setFormData({ ...formData, awcCenter: value });
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     // API call to `createChild` controller would go here
     setTimeout(() => {
       setIsLoading(false);
-      toast({ title: "Child Added", description: `${formData.name} has been added successfully.` });
+      toast({ title: "Child Added", description: `${formData.name} has been added successfully to ${formData.awcCenter}.` });
       navigate('/');
     }, 1000);
   };
@@ -43,7 +56,7 @@ const AddChild = () => {
       <Card>
         <CardHeader>
           <CardTitle>Add a New Child</CardTitle>
-          <CardDescription>Enter the details of the new child.</CardDescription>
+          <CardDescription>Enter the details of the new child for nutrition monitoring.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -67,9 +80,22 @@ const AddChild = () => {
                   </Select>
               </div>
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="village">Village</Label>
-              <Input id="village" placeholder="Child's village" required onChange={handleChange} />
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="village">Village</Label>
+                <Input id="village" placeholder="Child's village" required onChange={handleChange} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="awcCenter">AWC Center</Label>
+                <Select onValueChange={handleAwcCenterChange} required>
+                  <SelectTrigger><SelectValue placeholder="Select AWC Center" /></SelectTrigger>
+                  <SelectContent>
+                    {awcCenters.map((center) => (
+                      <SelectItem key={center} value={center}>{center}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Button type="submit" className="w-full sm:w-auto" disabled={isLoading}>
               {isLoading ? 'Saving...' : 'Save Child'}

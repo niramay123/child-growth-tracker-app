@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MapPin } from 'lucide-react';
 import { differenceInMonths, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
@@ -12,15 +12,25 @@ interface Child {
   dob: string;
   gender: string;
   village: string;
+  awcCenter?: string;
   status?: string;
 }
 
 const getBadgeColor = (status?: string) => {
   switch (status) {
-    case 'sam': return 'bg-red-500 hover:bg-red-600';
-    case 'mam': return 'bg-yellow-500 hover:bg-yellow-600';
-    case 'normal': return 'bg-green-500 hover:bg-green-600';
+    case 'sam': return 'bg-red-500 hover:bg-red-600 text-white';
+    case 'mam': return 'bg-yellow-500 hover:bg-yellow-600 text-white';
+    case 'normal': return 'bg-green-500 hover:bg-green-600 text-white';
     default: return 'hidden';
+  }
+}
+
+const getStatusLabel = (status?: string) => {
+  switch (status) {
+    case 'sam': return 'SAM';
+    case 'mam': return 'MAM';
+    case 'normal': return 'Normal';
+    default: return '';
   }
 }
 
@@ -30,20 +40,29 @@ const ChildCard = ({ child }: { child: Child }) => {
   const ageMonths = ageInMonths % 12;
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col hover:shadow-lg transition-shadow">
       <CardHeader>
         <div className="flex justify-between items-start">
-          <CardTitle>{child.name}</CardTitle>
-          <Badge className={`${getBadgeColor(child.status)} text-primary-foreground px-2 py-1 text-xs`}>
-            {child.status?.toUpperCase()}
+          <CardTitle className="text-lg">{child.name}</CardTitle>
+          <Badge className={getBadgeColor(child.status)}>
+            {getStatusLabel(child.status)}
           </Badge>
         </div>
         <CardDescription>
-          {ageYears > 0 ? `${ageYears}y ` : ''}{ageMonths}m old {child.gender} from {child.village}
+          {ageYears > 0 ? `${ageYears}y ` : ''}{ageMonths}m old {child.gender}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow">
-        <p className="text-sm text-muted-foreground">Date of Birth: {format(new Date(child.dob), 'dd MMM yyyy')}</p>
+      <CardContent className="flex-grow space-y-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <MapPin className="h-3 w-3" />
+          <span>{child.village}</span>
+        </div>
+        {child.awcCenter && (
+          <div className="text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+            {child.awcCenter}
+          </div>
+        )}
+        <p className="text-sm text-muted-foreground">DOB: {format(new Date(child.dob), 'dd MMM yyyy')}</p>
       </CardContent>
       <CardFooter>
         <Button asChild className="w-full">
